@@ -10,10 +10,10 @@ A MiSTer FPGA core for Data East's Lemmings arcade hardware (DE-0357, MAME's
 - [History](#history)
 - [Games](#games)
   - [Supported](#supported)
+- [Screenshots](#screenshots)
 - [Hardware](#hardware)
   - [Video timing](#video-timing)
   - [Floorplan](#floorplan)
-- [Screenshots](#screenshots)
 - [Installation](#installation)
 - [Controls](#controls)
 - [Status](#status)
@@ -51,6 +51,16 @@ Sets with an `.mra` in `releases/`. `lemmings` has run on hardware.
 |-|-|-|-|-|
 | Lemmings (US prototype) | 1991 | Data East USA | `lemmings` | |
 
+## Screenshots
+
+From the DE10-nano, native resolution.
+
+### Lemmings
+
+![lemmings title](docs/screenshots/lemmings/title.png)
+![lemmings attract demo](docs/screenshots/lemmings/demo.png)
+![lemmings two players](docs/screenshots/lemmings/2p.png)
+
 ## Hardware
 
 | Chip | Function | Status |
@@ -81,16 +91,6 @@ are in `docs/floorplan/Lemmings_groups.md`.
 ![Floorplan of Lemmings](docs/floorplan/Lemmings.png)
 
 The 20261108 release build (ad96fd7), fitted Nov 07 2026.
-
-## Screenshots
-
-From the DE10-nano, native resolution.
-
-### Lemmings
-
-![lemmings title](docs/screenshots/lemmings/title.png)
-![lemmings attract demo](docs/screenshots/lemmings/demo.png)
-![lemmings two players](docs/screenshots/lemmings/2p.png)
 
 ## Installation
 
