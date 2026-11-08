@@ -10,29 +10,22 @@ kept (ROADMAP, "Where a vendored module and MAME disagree").
 
 This core's own approximations are not here; they are in `HACKS.md`.
 
-Source references are to `{{MAME_DRIVER_DIR}}/{{DRIVER_FILE}}` unless named. MAME commit:
-`{{MAME_COMMIT}}`.
+Source references are to `src/mame/dataeast/lemmings.cpp` unless named. MAME commit:
+`c7f70a6ec10`.
 
 **Core column:** *copies* MAME; *differs* (and why); *n/a* (not in the core's scope);
 *not checked*.
 
-{{MAME_MACHINE_FLAGS_ONE_LINE}}
-<!-- e.g. "Every set is MACHINE_IMPERFECT_GRAPHICS." -->
+`lemmings` carries `MACHINE_SUPPORTS_SAVE` only.
 
-## {{SUBSYSTEM}}
-
-<!-- One section per subsystem: CPU and timing, Video, Sound, Protection, Inputs. -->
+## Video
 
 | Kludge | MAME | Core | Would settle it |
 |---|---|---|---|
-| {{SHORT_NAME_OR_MAME_QUOTE}} | `{{file}}:{{line}}`: {{what MAME does, quoting its own comment where it admits the guess}} | {{copies / differs: how / n/a}}, `{{core file or model function}}` | {{the measurement or capture that would answer it, or "—"}} |
-
-<!-- Examples of the shape, from sibling cores:
-| "Tokkae shadow masking (INACCURATE)" | `konamigx_v.cpp`, primodes 4 and 5: a shadow's priority is raised to the highest priority of a layer that SHD_ON excludes | copies, `mixer_shadow_setup` | The K055555 SHD_ON behaviour on hardware (MAME calls it a HACK) |
-| Unhandled priority mask 0xc0: MAME draws `machine().rand()` pixels and pops a message | `ms32_v.cpp:522-526` | differs: not reproduced | — |
-| Watchdog not implemented | `jaleco_ms32_sysctrl.cpp:104` | copies (ignored) | — |
-| Equal z-code tie-break | No silicon source found; MAME draws back to front and skips when the stored z is lower | copies: the line buffer writes when (z, priority) is strictly lower, in RAM order | A PCB capture of two overlapping equal-z sprites |
--->
+| Pixel layer drops each rectangle's last column and the screen's last line | `copy_bitmap`, 210 and 214: `y < bottom()`, `x < right()`, so line 239, x 319 and, windowed, x 159 are never drawn | copies, `lem_video.sv` `fskip` | A PCB frame of a level reaching that edge |
+| Vblank status bit high for 529 us from vblank start | `set_vblank_time(ATTOSECONDS_IN_USEC(529))` (465), with no raw timing | copies: `lem_board.sv` `vbl_cnt`, 25921 clk; the display blanks 40 lines | A PCB measurement of the status bit |
+| Frame shape: 264 lines, 442 clocks at 7 MHz | `set_refresh_hz(60)`, `set_size(320, 256)` (464-467); no raw timing | differs: MAME gives none; 264 lines by user decision, `lem_video.sv` | A PCB measurement of line and frame rate |
+| Whole frame drawn at vblank start from RAM as it stands then | `screen_update`, 224-258 | differs: the tilemap, tile pixels, palette and pixel layer are read as each line is scanned or fetched, so a mid-frame CPU write shows from that line on | — |
 
 ## Vendored modules that disagree with MAME
 

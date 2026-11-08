@@ -1,157 +1,355 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-
+//
+// MiSTer glue for Lemmings (MAME dataeast/lemmings.cpp), wiring rtl/lem_top.sv into the
+// framework. Adapted from Arcade-Pandora_MiSTer's Pandora.sv.
+//
+// The set is ROT0. Orientation CW/CCW turns the HDMI picture for a vertical monitor
+// (screen_rotate_two, the HPS framebuffer in DDR3); the analog output stays native. DDR3 is the
+// fast ROM load's during the copy and the rotator's the rest of the time.
 module emu
 (
 	`include "sys/emu_ports.vh"
 );
 
-///////// Default values for ports not used in this core /////////
-
 assign ADC_BUS  = 'Z;
 assign USER_OUT = '1;
 assign {UART_RTS, UART_TXD, UART_DTR} = 0;
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
-assign {SDRAM_DQ, SDRAM_A, SDRAM_BA, SDRAM_CLK, SDRAM_CKE, SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS} = 'Z;
-assign {DDRAM_CLK, DDRAM_BURSTCNT, DDRAM_ADDR, DDRAM_DIN, DDRAM_BE, DDRAM_RD, DDRAM_WE} = '0;  
 
-assign VGA_SL = 0;
 assign VGA_F1 = 0;
 assign VGA_SCALER  = 0;
 assign VGA_DISABLE = 0;
 assign HDMI_FREEZE = 0;
 assign HDMI_BLACKOUT = 0;
 assign HDMI_BOB_DEINT = 0;
+assign FB_FORCE_BLANK = 0;   // required with MISTER_FB; the rotator has no blanking need
 
-assign AUDIO_S = 0;
-assign AUDIO_L = 0;
-assign AUDIO_R = 0;
-assign AUDIO_MIX = 0;
+// lem_sound: YM2151 stereo, M6295 on both sides
+assign AUDIO_S   = 1;
+assign AUDIO_MIX = status[51:50];
 
-assign LED_DISK = 0;
+assign LED_DISK  = 0;
 assign LED_POWER = 0;
-assign BUTTONS = 0;
+assign BUTTONS   = 0;
 
-//////////////////////////////////////////////////////////////////
+`include "build_id.v"
+`ifdef DEBUG_ISSP
+localparam DEBUG_MENU_HIDE = 1'b0;
+`else
+localparam DEBUG_MENU_HIDE = 1'b1;
+`endif
 
-wire [1:0] ar = status[122:121];
-
-assign VIDEO_ARX = (!ar) ? 12'd4 : (ar - 1'd1);
-assign VIDEO_ARY = (!ar) ? 12'd3 : 12'd0;
-
-`include "build_id.v" 
 localparam CONF_STR = {
 	"Lemmings;;",
 	"-;",
-	"O[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
-	"O[2],TV Mode,NTSC,PAL;",
-	"O[4:3],Noise,White,Red,Green,Blue;",
+	"H5O[122:121],Aspect ratio,Original,Full Screen,[ARC1],[ARC2];",
+	"H5O[48:47],Orientation,Off,CW,CCW;",
+	"O[49],Flip Screen,Off,On;",
+	"O[51:50],Stereo Mix,None,25%,50%,100%;",
+	"H5O[93:91],Scale,Normal,V-Integer,Narrower HV-Integer,Wider HV-Integer,HV-Integer;",
+	"H5O[94],Vertical crop,Disabled,216p (5x);",
+	"H5O[99:95],Crop offset,0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
+	"H5O[46:44],Scandoubler Fx,None,HQ2x,CRT 25%,CRT 50%,CRT 75%;",
+	"O[64],CRT Adjust,Off,On;",
+	"H2O[71:65],CRT H-Position,0,+1,+2,+3,+4,+5,+6,+7,+8,+9,+10,+11,+12,+13,+14,+15,+16,+17,+18,+19,+20,+21,+22,+23,+24,+25,+26,+27,+28,+29,+30,+31,+32,+33,+34,+35,+36,+37,+38,+39,+40,+41,+42,+43,+44,+45,+46,+47,+48,-48,-47,-46,-45,-44,-43,-42,-41,-40,-39,-38,-37,-36,-35,-34,-33,-32,-31,-30,-29,-28,-27,-26,-25,-24,-23,-22,-21,-20,-19,-18,-17,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
+	"H2O[77:72],CRT V-Shift,0,+1,+2,+3,+4,+5,+6,+7,+8,+9,+10,+11,+12,+13,+14,+15,+16,+17,+18,+19,+20,+21,+22,+23,+24,+25,+26,+27,+28,+29,+30,+31,-32,-31,-30,-29,-28,-27,-26,-25,-24,-23,-22,-21,-20,-19,-18,-17,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
+	"H2O[85:81],CRT H-Size,0,+1,+2,+3,+4,+5,+6,+7,+8,+9,+10,+11,+12,+13,+14,+15,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1;",
+	"H2O[89:86],CRT V-Size,0,+1,+2,+3,+4,+5,+6,+7,-7,-6,-5,-4,-3,-2,-1;",
+	"H2O[90],CRT V-Size Mode,PVM,Cabinet;",
 	"-;",
-	"P1,Test Page 1;",
-	"P1-;",
-	"P1-, -= Options in page 1 =-;",
-	"P1-;",
-	"P1O[5],Option 1-1,Off,On;",
-	"d0P1F1,BIN;",
-	"H0P1O[10],Option 1-2,Off,On;",
+	"DIP;",
 	"-;",
-	"P2,Test Page 2;",
-	"P2-;",
-	"P2-, -= Options in page 2 =-;",
-	"P2-;",
-	"P2S0,DSK;",
-	"P2O[7:6],Option 2,1,2,3,4;",
-	"-;",
-	"-;",
-	"T[0],Reset;",
-	"R[0],Reset and close OSD;",
-	"v,0;", // [optional] config version 0-99. 
-	        // If CONF_STR options are changed in incompatible way, then change version number too,
-			  // so all options will get default values on first start.
-	"V,v",`BUILD_DATE 
+	"R[0],Reset;",
+	"J1,Select,Hurry,Start,Coin,Pause;",
+	"V,v",`BUILD_DATE
 };
 
-wire forced_scandoubler;
-wire   [1:0] buttons;
+wire         forced_scandoubler, direct_video;
+wire  [21:0] gamma_bus;
+wire         video_rotated;
+wire  [1:0]  buttons;
 wire [127:0] status;
 wire  [10:0] ps2_key;
+wire  [24:0] ps2_mouse;
+wire  [31:0] joystick_0, joystick_1;
+wire         ioctl_download, ioctl_wr, ioctl_wait;
+wire  [15:0] ioctl_index;
+wire  [26:0] ioctl_addr;
+wire   [7:0] ioctl_dout;
 
 hps_io #(.CONF_STR(CONF_STR)) hps_io
 (
 	.clk_sys(clk_sys),
 	.HPS_BUS(HPS_BUS),
 	.EXT_BUS(),
-	.gamma_bus(),
-
+	.gamma_bus(gamma_bus),
 	.forced_scandoubler(forced_scandoubler),
-
 	.buttons(buttons),
 	.status(status),
-	.status_menumask({status[5]}),
-	
-	.ps2_key(ps2_key)
+	// H2 CRT Adjust's settings while it is off; H5 the HDMI scaler's options under direct video
+	.status_menumask({direct_video, 2'b00, ~status[64], DEBUG_MENU_HIDE, status[5]}),
+	.direct_video(direct_video),
+	.video_rotated(video_rotated),
+	.joystick_0(joystick_0),
+	.joystick_1(joystick_1),
+	.ioctl_download(ioctl_download),
+	.ioctl_index(ioctl_index),
+	.ioctl_wr(ioctl_wr),
+	.ioctl_addr(ioctl_addr),
+	.ioctl_dout(ioctl_dout),
+	.ioctl_wait(ioctl_wait),
+	.ps2_key(ps2_key),
+	.ps2_mouse(ps2_mouse)
 );
 
 ///////////////////////   CLOCKS   ///////////////////////////////
 
-wire clk_sys;
+// clk_sys = 49 MHz, 7 x the 7 MHz pixel clock; outclk_1 the SDRAM clock, phase-shifted
+// (rtl/pll/pll_0002.v)
+wire clk_sys, clk_sdram_shifted, pll_locked;
 pll pll
 (
 	.refclk(CLK_50M),
 	.rst(0),
-	.outclk_0(clk_sys)
+	.outclk_0(clk_sys),
+	.outclk_1(clk_sdram_shifted),
+	.locked(pll_locked)
 );
+assign SDRAM_CLK = clk_sdram_shifted;
 
-wire reset = RESET | status[0] | buttons[1];
+// The DDR3 copy is not in `reset`: the loader writes SDRAM through lem_top, which holds only
+// the board during the copy.
+wire reset = RESET | status[0] | buttons[1] | ~pll_locked;
 
-wire [1:0] col = status[4:3];
+///////////////////////   CONFIGURATION   ////////////////////////
 
-wire HBlank;
-wire HSync;
-wire VBlank;
-wire VSync;
-wire ce_pix;
-wire hvcnt_atzero;
-wire [7:0] video;
+// DIP switches: an ioctl download, index 254 (Main_MiSTer arcade_sw_send). Bytes 0-1 DSW.
+reg [63:0] dip_sw;
+always @(posedge clk_sys)
+	if (ioctl_wr && ioctl_index == 16'd254 && !ioctl_addr[24:3])
+		dip_sw[{ioctl_addr[2:0], 3'b000} +: 8] <= ioctl_dout;
 
-// Leave H/V sync always on. This stabilizes the video output while the core
-// is in reset. This example releases the reset when H/V counters are at zero.
-reg reset_core = 1;
+///////////////////////   INPUTS   ////////////////////////////////
+
+// MiSTer joystick bits: 0 R, 1 L, 2 D, 3 U, 4 Select, 5 Hurry, 6 Start, 7 Coin, 8 Pause (the
+// J1 line and the .mra's <buttons>). MAME's default keys beside the pads (rtl/mame_keys.sv).
+wire [31:0] key0, key1;
+mame_keys #(.BUTTONS(2), .START(6), .COIN(7), .PAUSE(8), .SERVICE(9)) u_mame_keys (
+	.clk(clk_sys), .ps2_key(ps2_key), .key0(key0), .key1(key1), .svc_coin()
+);
+// player 1's mouse buttons: left Select, right Hurry (ps2_mouse[1:0] are held states)
+wire [31:0] joy0 = joystick_0 | key0 | {26'd0, ps2_mouse[1], ps2_mouse[0], 4'd0};
+wire [31:0] joy1 = joystick_1 | key1;
+
+// lemmings.cpp:328-348, active low
+wire [15:0] in_inputs = ~{10'd0, joy1[5], joy1[4], joy1[6], joy0[5], joy0[4], joy0[6]};
+wire [2:0]  in_system = ~{key0[9], joy0[7], joy1[7]};     // service (F2), coin 1, coin 2
+
+// Trackballs, lemmings.cpp:383-393: 8-bit counters, X reversed (so FF at rest). Player 1 takes
+// the mouse and the stick, player 2 the stick; the stick moves 7 a frame (KEYDELTA 10 at
+// SENSITIVITY 70). docs/HACKS.md: the mouse's delta is not scaled.
+reg  [7:0] tb_x0 = 8'd0, tb_y0 = 8'd0, tb_x1 = 8'd0, tb_y1 = 8'd0;
+reg        mouse_tog = 1'b0;
+wire       vblank_core;
+reg        vblank_d = 1'b0;
+wire [8:0] mdx = {ps2_mouse[4], ps2_mouse[15:8]};
+wire [8:0] mdy = {ps2_mouse[5], ps2_mouse[23:16]};
 always @(posedge clk_sys) begin
-	if(reset) reset_core <= 1;
-	else if(hvcnt_atzero) reset_core <= 0;
+	mouse_tog <= ps2_mouse[24];
+	vblank_d  <= vblank_core;
+	if (ps2_mouse[24] != mouse_tog) begin
+		tb_x0 <= tb_x0 + mdx[7:0];
+		tb_y0 <= tb_y0 - mdy[7:0];        // PS/2 Y counts up the screen
+	end else if (vblank_core && !vblank_d) begin
+		tb_x0 <= tb_x0 + (joy0[0] ? 8'd7 : 8'd0) - (joy0[1] ? 8'd7 : 8'd0);
+		tb_y0 <= tb_y0 + (joy0[2] ? 8'd7 : 8'd0) - (joy0[3] ? 8'd7 : 8'd0);
+		tb_x1 <= tb_x1 + (joy1[0] ? 8'd7 : 8'd0) - (joy1[1] ? 8'd7 : 8'd0);
+		tb_y1 <= tb_y1 + (joy1[2] ? 8'd7 : 8'd0) - (joy1[3] ? 8'd7 : 8'd0);
+	end
 end
 
-mycore mycore
-(
-	.clk(clk_sys),
-	.reset(reset_core),
+// Pause: the Pause button toggles it; the 68000 stops.
+wire pause_btn = joy0[8] | joy1[8];
+reg  pause_btn_d, pause;
+always @(posedge clk_sys) begin
+	pause_btn_d <= pause_btn;
+	if (reset) pause <= 1'b0;
+	else if (pause_btn & ~pause_btn_d) pause <= ~pause;
+end
 
-	.pal(status[2]),
-	.scandouble(forced_scandoubler),
+///////////////////////   CORE   //////////////////////////////////
 
-	.ce_pix(ce_pix),
-	.hvcnt_atzero(hvcnt_atzero),
+wire        ce_pix, hblank, hsync, vsync;
+wire  [7:0] r, g, b;
+wire        ldr_active, ldr_req, ldr_we16, ldr_busy;
+wire [24:0] ldr_addr;
+wire [15:0] ldr_data;
 
-	.HBlank(HBlank),
-	.HSync(HSync),
-	.VBlank(VBlank),
-	.VSync(VSync),
-
-	.video(video)
+lem_top u_top (
+	.clk(clk_sys), .reset(reset), .init(~pll_locked), .pause(pause), .flip(status[49]),
+	.SDRAM_A(SDRAM_A), .SDRAM_DQML(SDRAM_DQML), .SDRAM_DQMH(SDRAM_DQMH),
+	.SDRAM_BA(SDRAM_BA), .SDRAM_nCS(SDRAM_nCS), .SDRAM_nWE(SDRAM_nWE),
+	.SDRAM_nRAS(SDRAM_nRAS), .SDRAM_nCAS(SDRAM_nCAS), .SDRAM_CLK(), .SDRAM_CKE(SDRAM_CKE),
+	.SDRAM_DQ(SDRAM_DQ),
+	.ioctl_download(ioctl_download), .ioctl_index(ioctl_index), .ioctl_wr(ioctl_wr),
+	.ioctl_addr(ioctl_addr[24:0]), .ioctl_dout(ioctl_dout), .ioctl_wait(ioctl_wait),
+	.ldr_active(ldr_active), .ldr_req(ldr_req), .ldr_addr(ldr_addr), .ldr_data(ldr_data),
+	.ldr_we16(ldr_we16), .ldr_busy(ldr_busy),
+	.in_inputs(in_inputs), .in_system(in_system), .in_dsw(dip_sw[15:0]),
+	.an0(~tb_x0), .an1(tb_y0), .an2(~tb_x1), .an3(tb_y1),
+	.ce_pix(ce_pix), .r(r), .g(g), .b(b),
+	.hblank(hblank), .vblank(vblank_core), .hsync(hsync), .vsync(vsync),
+	.audio_l(AUDIO_L), .audio_r(AUDIO_R),
+	.overrun_spr(), .overrun_pix(), .max_tiles(),
+	.dbg_stb(), .dbg_we(), .dbg_addr(), .dbg_data(), .dbg_uds(), .dbg_lds()
 );
 
-assign CLK_VIDEO = clk_sys;
-assign CE_PIXEL = ce_pix;
+///////////////////////   VIDEO   //////////////////////////////////
 
-assign VGA_DE = ~(HBlank | VBlank);
-assign VGA_HS = HSync;
-assign VGA_VS = VSync;
-assign VGA_G  = (!col || col == 2) ? video : 8'd0;
-assign VGA_R  = (!col || col == 1) ? video : 8'd0;
-assign VGA_B  = (!col || col == 3) ? video : 8'd0;
+// Orientation: status 0 Off, 1 CW, 2 CCW. Aspect 4:3 whatever the pixel count, 3:4 rotated;
+// ARY 0 means "stretch" to video_freak
+wire        rotate_en  = status[48:47] != 2'd0;
+wire        rotate_ccw = status[48:47] == 2'd2;
+wire [1:0]  ar       = status[122:121];
+wire [11:0] base_arx = (!ar) ? (rotate_en ? 12'd3 : 12'd4) : 12'({ar} - 2'd1);
+wire [11:0] base_ary = (!ar) ? (rotate_en ? 12'd4 : 12'd3) : 12'd0;
 
-reg  [26:0] act_cnt;
-always @(posedge clk_sys) act_cnt <= act_cnt + 1'd1; 
-assign LED_USER    = act_cnt[26]  ? act_cnt[25:18]  > act_cnt[7:0]  : act_cnt[25:18]  <= act_cnt[7:0];
+// CRT Adjust (rtl/video/crt_chain.sv): moves the picture inside the line, sync untouched.
+// H-Position's list has 97 entries, so its negative half wraps at 97; V-Size's 15 at 15.
+wire crt_adj_on   = status[64];
+wire crt_scale_en = ~(forced_scandoubler | |status[46:44]);
+wire  [6:0] crt_hpos_idx = status[71:65];
+wire signed [8:0] crt_hoffset = (crt_hpos_idx <= 7'd48) ? $signed({2'b00, crt_hpos_idx})
+                                                         : $signed({2'b00, crt_hpos_idx}) - 9'sd97;
+wire signed [5:0] crt_voffset = $signed(status[77:72]);
+wire signed [4:0] crt_hsize   = $signed(status[85:81]);
+wire  [3:0] crt_vsz_idx  = status[89:86];
+wire signed [3:0] crt_vsz_step = (crt_vsz_idx <= 4'd7) ? $signed(crt_vsz_idx) : $signed(crt_vsz_idx - 4'd15);
+
+wire       crt_ce;
+wire [7:0] crt_r, crt_g, crt_b;
+wire       crt_hs, crt_vs, crt_hb, crt_vb;
+crt_chain #(.HTOTAL(442), .VTOTAL(264), .ACTIVE_W(320), .RD_BASE(28)) crt_chain   // 7 clk a pixel, x4
+(
+	.clk(clk_sys), .ce_pix(ce_pix),
+	.active(crt_adj_on), .scale_en(crt_scale_en),
+	.hoffset(crt_hoffset), .voffset(crt_voffset), .hsize(crt_hsize),
+	.vsize_step(crt_vsz_step), .vsize_cabinet(status[90]),
+	.r_in(r), .g_in(g), .b_in(b),
+	.hs_in(hsync), .vs_in(vsync), .hb_in(hblank), .vb_in(vblank_core),
+	.ce_out(crt_ce), .r_out(crt_r), .g_out(crt_g), .b_out(crt_b),
+	.hs_out(crt_hs), .vs_out(crt_vs), .hb_out(crt_hb), .vb_out(crt_vb)
+);
+
+wire vga_de_raw;
+arcade_video #(.WIDTH(320), .DW(24), .GAMMA(1)) arcade_video
+(
+	.clk_video(clk_sys),
+	.ce_pix(crt_ce),
+	.RGB_in({crt_r, crt_g, crt_b}),
+	.HBlank(crt_hb), .VBlank(crt_vb), .HSync(crt_hs), .VSync(crt_vs),
+	.CLK_VIDEO(CLK_VIDEO), .CE_PIXEL(CE_PIXEL),
+	.VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B),
+	.VGA_HS(VGA_HS), .VGA_VS(VGA_VS), .VGA_DE(vga_de_raw), .VGA_SL(VGA_SL),
+	.fx(status[46:44]),
+	.forced_scandoubler(forced_scandoubler),
+	.gamma_bus(gamma_bus)
+);
+
+// integer scaling, crop, aspect: 216 of the 224 lines is 5x on a 1080-line display
+video_freak video_freak
+(
+	.CLK_VIDEO(CLK_VIDEO), .CE_PIXEL(CE_PIXEL), .VGA_VS(VGA_VS),
+	.HDMI_WIDTH(HDMI_WIDTH), .HDMI_HEIGHT(HDMI_HEIGHT),
+	.VGA_DE(VGA_DE), .VIDEO_ARX(VIDEO_ARX), .VIDEO_ARY(VIDEO_ARY),
+	.VGA_DE_IN(vga_de_raw), .ARX(base_arx), .ARY(base_ary),
+	.CROP_SIZE(status[94] ? 12'd216 : 12'd0), .CROP_OFF(status[99:95]),
+	.SCALE(status[93:91])
+);
+
+///////////////////////   FAST ROM LOAD   //////////////////////////
+
+// The .mra's <rom index="0" address="0x30000000"> has the HPS put the image in DDR3; the copy
+// to SDRAM starts out of reset when no byte of index 0 came through the FPGA (after
+// srg320/Arcade-PsikyoSH2_MiSTer), once per download.
+reg  dl_seen_wr = 1'b0, dl_active_d = 1'b0, ldr_pending = 1'b0, ldr_start = 1'b0, ldr_done = 1'b0;
+wire dl_index0 = ioctl_download && ioctl_index == 16'd0;
+always @(posedge clk_sys) begin
+	ldr_start   <= 1'b0;
+	dl_active_d <= dl_index0;
+	if (dl_index0 && !dl_active_d)  dl_seen_wr <= 1'b0;
+	else if (dl_index0 && ioctl_wr) dl_seen_wr <= 1'b1;
+	if (dl_index0 && !dl_active_d) ldr_done <= 1'b0;
+	if (reset) ldr_pending <= 1'b1;
+	else if (ldr_pending && !ioctl_download && !ldr_active) begin
+		ldr_pending <= 1'b0;
+		if (!dl_seen_wr && !ldr_done) begin ldr_start <= 1'b1; ldr_done <= 1'b1; end
+	end
+end
+
+wire        ldr_ddr_req, ldr_ddr_busy, ldr_ddr_valid;
+wire [27:0] ldr_ddr_addr;
+wire [63:0] ldr_ddr_rdata;
+rom_loader #(.LENGTH(28'h0280000)) u_rom_loader (   // the .mra image, to the pixel layer's end
+	.clk(clk_sys), .reset(reset),
+	.start(ldr_start), .busy(ldr_active),
+	.ddr_req(ldr_ddr_req), .ddr_addr(ldr_ddr_addr), .ddr_busy(ldr_ddr_busy),
+	.ddr_valid(ldr_ddr_valid), .ddr_rdata(ldr_ddr_rdata),
+	.dl_req(ldr_req), .dl_addr(ldr_addr), .dl_data(ldr_data),
+	.dl_we16(ldr_we16), .dl_busy(ldr_busy)
+);
+
+wire [7:0]  ldr_DDRAM_BURSTCNT, ldr_DDRAM_BE;
+wire [28:0] ldr_DDRAM_ADDR;
+wire [63:0] ldr_DDRAM_DIN;
+wire        ldr_DDRAM_RD, ldr_DDRAM_WE;
+ddram_phy u_ldr_ddram (
+	.clk(clk_sys), .reset(reset),
+	.DDRAM_BUSY(DDRAM_BUSY), .DDRAM_BURSTCNT(ldr_DDRAM_BURSTCNT),
+	.DDRAM_ADDR(ldr_DDRAM_ADDR), .DDRAM_DOUT(DDRAM_DOUT),
+	.DDRAM_DOUT_READY(DDRAM_DOUT_READY), .DDRAM_RD(ldr_DDRAM_RD),
+	.DDRAM_DIN(ldr_DDRAM_DIN), .DDRAM_BE(ldr_DDRAM_BE), .DDRAM_WE(ldr_DDRAM_WE),
+	.req(ldr_ddr_req), .we(1'b0), .addr(ldr_ddr_addr), .wdata(8'd0),
+	.busy(ldr_ddr_busy), .valid(ldr_ddr_valid), .rdata(ldr_ddr_rdata)
+);
+
+///////////////////////   HDMI ROTATION   ////////////////////////////
+
+// Sorgelig's rotator: a tap on the scaler's input that writes a rotated copy into DDR3 and
+// points the HPS framebuffer at it, for HDMI only. Flip stays the core's (both outputs).
+// DDRAM_BUSY is held during the ROM copy: the rotator still samples it to decide whether a
+// write was taken, and with no reset port a phantom accept leaves a stale band in the frame
+// buffer (the DreamWorld core's finding).
+wire        rot_DDRAM_CLK, rot_DDRAM_WE, rot_DDRAM_RD;
+wire [7:0]  rot_DDRAM_BURSTCNT, rot_DDRAM_BE;
+wire [28:0] rot_DDRAM_ADDR;
+wire [63:0] rot_DDRAM_DIN;
+screen_rotate_two screen_rotate_two
+(
+	.CLK_VIDEO(CLK_VIDEO), .CE_PIXEL(CE_PIXEL),
+	.VGA_R(VGA_R), .VGA_G(VGA_G), .VGA_B(VGA_B),
+	.VGA_HS(VGA_HS), .VGA_VS(VGA_VS), .VGA_DE(VGA_DE),
+	.rotate_ccw(rotate_ccw), .no_rotate(~rotate_en), .flip(1'b0), .two_screen(1'b0),
+	.video_rotated(video_rotated),
+	.FB_EN(FB_EN), .FB_FORMAT(FB_FORMAT), .FB_WIDTH(FB_WIDTH), .FB_HEIGHT(FB_HEIGHT),
+	.FB_BASE(FB_BASE), .FB_STRIDE(FB_STRIDE), .FB_VBL(FB_VBL), .FB_LL(FB_LL),
+	.DDRAM_CLK(rot_DDRAM_CLK), .DDRAM_BUSY(DDRAM_BUSY | ldr_active),
+	.DDRAM_BURSTCNT(rot_DDRAM_BURSTCNT), .DDRAM_ADDR(rot_DDRAM_ADDR),
+	.DDRAM_DIN(rot_DDRAM_DIN), .DDRAM_BE(rot_DDRAM_BE),
+	.DDRAM_WE(rot_DDRAM_WE), .DDRAM_RD(rot_DDRAM_RD)
+);
+
+// the loader has DDR3 while it copies (the board in reset, nothing to show)
+assign DDRAM_CLK      = ldr_active ? clk_sys            : rot_DDRAM_CLK;
+assign DDRAM_BURSTCNT = ldr_active ? ldr_DDRAM_BURSTCNT : rot_DDRAM_BURSTCNT;
+assign DDRAM_ADDR     = ldr_active ? ldr_DDRAM_ADDR     : rot_DDRAM_ADDR;
+assign DDRAM_DIN      = ldr_active ? ldr_DDRAM_DIN      : rot_DDRAM_DIN;
+assign DDRAM_BE       = ldr_active ? ldr_DDRAM_BE       : rot_DDRAM_BE;
+assign DDRAM_WE       = ldr_active ? ldr_DDRAM_WE       : rot_DDRAM_WE;
+assign DDRAM_RD       = ldr_active ? ldr_DDRAM_RD       : rot_DDRAM_RD;
+
+reg [26:0] act_cnt;
+always @(posedge clk_sys) act_cnt <= act_cnt + 1'd1;
+assign LED_USER = act_cnt[26] ? act_cnt[25:18] > act_cnt[7:0] : act_cnt[25:18] <= act_cnt[7:0];
 
 endmodule

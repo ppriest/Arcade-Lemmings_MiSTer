@@ -99,11 +99,26 @@ local function dump_sparse(name, tbl, size)
     wr(name, table.concat(t))
 end
 
+-- CORE_EVENTS "first:last:field name,...": hold an input field over those frames.
+local events = {}
+for spec in string.gmatch(os.getenv("CORE_EVENTS") or "", "([^,]+)") do
+    local a, b, name = spec:match("^(%d+):(%d+):(.+)$")
+    assert(a, "bad event: " .. spec)
+    local f
+    for _, port in pairs(m.ioport.ports) do f = f or port.fields[name] end
+    assert(f, "no input field: " .. name)
+    events[#events + 1] = { a = tonumber(a), b = tonumber(b), f = f }
+end
+
 local done = false
 core_subs[#core_subs + 1] = emu.add_machine_frame_notifier(guard("frame", function()
     if done then return end
     local scr = m.screens[":screen"]
-    if scr:frame_number() < FRAME then return end
+    local n = scr:frame_number()
+    for _, e in ipairs(events) do
+        if n == e.a then e.f:set_value(1) elseif n == e.b + 1 then e.f:set_value(0) end
+    end
+    if n < FRAME then return end
     done = true
 
     for _, r in ipairs(ranges(os.getenv("CORE_READ"))) do
@@ -111,6 +126,13 @@ core_subs[#core_subs + 1] = emu.add_machine_frame_notifier(guard("frame", functi
     end
     for _, r in ipairs(WTAP) do
         dump_sparse("reg_" .. r.name .. ".bin", regs[r.name], r.hi - r.lo + 1)
+    end
+
+    -- The sprite lists the frame was drawn from: lemmings.cpp keeps them outside the CPU's view.
+    for chip, item in pairs({ [0] = "0/m_sprite_triple_buffer[0]", [1] = "1/m_sprite_triple_buffer[1]" }) do
+        local it, t = emu.item(m.devices[":"].items[item]), {}
+        for i = 0, it.count - 1 do t[#t + 1] = string.pack(">I2", it:read(i)) end
+        wr("sprdraw" .. chip .. ".bin", table.concat(t))
     end
 
     scr:snapshot(OUT .. "/reference.png")

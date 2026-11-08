@@ -1,8 +1,13 @@
 {
-  "mra_folder": null,
+  "mra_folder": "_Lemmings",
   "held_back_sets": [],
-  "required_instances": ["hps_io"],
-  "required_macros": {},
+  "required_instances": [
+    "hps_io",
+    "screen_rotate_two"
+  ],
+  "required_macros": {
+    "MISTER_FB": "HDMI rotation needs the FB_* ports"
+  },
   "stage_copies": [],
   "probe_default_instance": "F"
 }

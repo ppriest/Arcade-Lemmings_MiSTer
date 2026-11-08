@@ -1,57 +1,60 @@
 {
-  "_comment": "Core-specific. The main CPU's view of the machine, from the MAME driver's address map. Read by mame_capture.py and write_timing.py. Addresses are hex strings, inclusive.",
+  "_comment": "Core-specific. The main CPU's view of the machine, from lemmings.cpp main_map. Read by mame_capture.py and write_timing.py. Addresses are hex strings, inclusive.",
   "cpu": ":maincpu",
   "space": "program",
   "bus_bytes": 2,
   "big_endian": true,
   "read": {
-    "workram": [
-      "0x000000",
-      "0x00ffff"
-    ]
+    "workram": ["0x100000", "0x10ffff"],
+    "spriteram1": ["0x120000", "0x1207ff"],
+    "spriteram2": ["0x140000", "0x1407ff"],
+    "palette": ["0x160000", "0x160fff"],
+    "control": ["0x170000", "0x17000f"],
+    "vram": ["0x200000", "0x201fff"],
+    "vram_extra": ["0x202000", "0x202fff"],
+    "pixel0": ["0x300000", "0x37ffff"],
+    "pixel1": ["0x380000", "0x39ffff"]
   },
   "wtap": {
-    "vregs": [
-      "0x000000",
-      "0x00001f"
-    ]
+    "spr1_trigger": ["0x1c0000", "0x1c0001"],
+    "spr2_trigger": ["0x1e0000", "0x1e0001"]
   },
   "sweep": [
-    "workram",
-    "vregs"
+    "spriteram1",
+    "spriteram2",
+    "palette",
+    "control",
+    "vram",
+    "pixel0",
+    "pixel1",
+    "spr1_trigger",
+    "spr2_trigger"
   ],
   "trace": {
     "addr_hi": "0xffffff",
-    "io": [
-      "0x000000",
-      "0x000000"
-    ],
-    "vectors": [
-      "0x000000",
-      "0x000000"
-    ],
+    "io": ["0x190000", "0x1a3fff"],
+    "vectors": ["0x000000", "0x0003ff"],
     "ipl": {
       "reg": "SR",
       "shift": 8,
       "mask": 7
     },
     "rom": [
-      [
-        "0x000000",
-        "0x0fffff"
-      ]
+      ["0x000000", "0x0fffff"]
     ],
     "ram": [
-      [
-        "0x100000",
-        "0x10ffff"
-      ]
+      ["0x100000", "0x10ffff"],
+      ["0x120000", "0x1207ff"],
+      ["0x140000", "0x1407ff"],
+      ["0x160000", "0x160fff"],
+      ["0x200000", "0x202fff"],
+      ["0x300000", "0x39ffff"]
     ]
   },
   "inputs": {
     "coin": "Coin 1",
     "start": "1 Player Start",
-    "hold": "P1 Right",
-    "pulse": "P1 Button 1"
+    "hold": "P1 Hurry",
+    "pulse": "P1 Select"
   }
 }

@@ -266,6 +266,12 @@ To add a lesson:
 - **The map digits are mechanical.** mra-tools-c emits bytes in digit order minus one: `map="12"`
   swaps pairs and `map="21"` is verbatim. `ROM_LOAD16_WORD_SWAP` gives `<interleave output="16">`
   with `map="12"`; plain `ROM_LOAD` gives a bare `<part>`.
+- **Every `<interleave>` needs a part on output byte 0 (rightmost map digit).** [Lemmings] MiSTer
+  Main's `mra_loader.cpp` sends `romlen[0]` bytes, and only writes to byte 0 advance it. A
+  `ROM_LOAD32_BYTE` region with byte 0 erased (maps `1000`, `0100`, `0010`) sends nothing, and
+  the next parts overwrite it. The CPU ran and the tile and pixel layers were right, but every
+  sprite was noise. An offline re-read that zero-fills the gap (`mra.py`) passes it anyway. Send
+  such a region as plain parts per byte lane and interleave in the download transform.
 - **Do not "fix" a loader without hardware evidence of wrong bytes.** One rewrite was tested against
   an SDRAM that was never written, and swapping its maps changed nothing. A hardware-vs-image
   comparison built from the same byte-order assumption cannot find a wrong image. A ROM-trace match
@@ -417,6 +423,11 @@ To add a lesson:
   - Capture `SDRAM_DQ` once, unconditionally, and split it into lanes a cycle later.
   - When an inert change breaks the board with clean STA, read "Unconstrained Input Ports" and the
     Packed Register table.
+- **[Lemmings] A burst read must start at the granule's first column when lanes are picked by
+  address.** A sequential burst wraps within its aligned block, so a read started at word k returns
+  k, k+1, ... wrapped, and lane k is not word k. A chip model that counts on without wrapping is
+  wrong in a different way and hides which. Lemmings' 68000 pixel reads did this; the board showed
+  word-pair black columns in terrain. Every read client should drop the low address bits itself.
 
 ## Sprite lists, line buffers and snapshots
 
@@ -605,6 +616,18 @@ To add a lesson:
 - **A per-bench verification of a branch is not coverage of it.** A DIP set after reset was not
   acted on and the sweep printed PASS. Verify the effect: fail a frame whose control byte lacks
   the bit.
+
+- **`sim_run` "passed" reports the simulator's exit, not the bench's result.** [Lemmings] A backstop
+  `#(20*1000*1000*1000)` overflowed 32 bits, the bench stopped at time 0 and the run still passed. Read
+  the bench's own summary lines from the log.
+- **Raise a replayed 68000 interrupt from MAME's trace two accesses before the frame's preceding
+  read.** [Lemmings] fx68k samples during the access before an instruction's last prefetch, so 0 and 1
+  land one instruction late; 2 matched 500,000 accesses in `sim/lem_boot_tb`.
+
+- **Latch the target line when a line render starts.** [Lemmings] The render began one pixel before
+  vcount advanced, and reading the target live drew every sprite one line high.
+- **A memory model whose ok follows the address one clock late pops the next request on stale data.**
+  [Lemmings] Drop cs for a clock after each ok, or compare the address the data came from.
 
 ## When simulation passes and hardware fails
 

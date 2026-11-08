@@ -58,7 +58,9 @@ Steps for a release:
    shows this build's date and the right MRA count. Files in `unsupported/` and `_dev/` are not
    published, so keep work in progress there.
 
-**Current state:** <one line: what the latest build passes or fails, with the number>.
+**Current state:** 20261108 released from ad96fd7 (default seed), timing met on every clock, `clk_sys`
+setup +2.860 ns. No smoke-test script yet: the set was play-tested on the board with this bitstream
+(`Lemmings_30000006.rbf`).
 
 ## Submitting the core upstream
 

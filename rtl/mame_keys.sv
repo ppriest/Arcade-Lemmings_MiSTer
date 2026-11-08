@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // MAME's default keys (src/emu/inpttype.ipp) in hps_io's joystick layout, to
 // OR into joystick_0/1: right, left, down, up at bits 0-3, buttons 1-6 at 4-9,
 // Start, Coin, Pause, Service at the J1 line's own positions (parameters).
@@ -37,8 +38,8 @@ always @(posedge clk) begin
 			9'h174: key0[0]       <= p; // right
 			9'h014: key0[4]       <= p; // left ctrl
 			9'h011: key0[5]       <= p; // left alt
-			9'h029: key0[6]       <= p; // space
-			9'h012: key0[7]       <= p; // left shift
+			9'h029: if (BUTTONS >= 3) key0[6] <= p; // space
+			9'h012: if (BUTTONS >= 4) key0[7] <= p; // left shift
 			9'h01A: if (BUTTONS >= 5) key0[8] <= p; // Z
 			9'h022: if (BUTTONS >= 6) key0[9] <= p; // X
 			9'h016: key0[START]   <= p; // 1
@@ -52,8 +53,8 @@ always @(posedge clk) begin
 			9'h034: key1[0]       <= p; // G
 			9'h01C: key1[4]       <= p; // A
 			9'h01B: key1[5]       <= p; // S
-			9'h015: key1[6]       <= p; // Q
-			9'h01D: key1[7]       <= p; // W
+			9'h015: if (BUTTONS >= 3) key1[6] <= p; // Q
+			9'h01D: if (BUTTONS >= 4) key1[7] <= p; // W
 			9'h024: if (BUTTONS >= 5) key1[8] <= p; // E
 			9'h01E: key1[START]   <= p; // 2
 			9'h036: key1[COIN]    <= p; // 6

@@ -81,6 +81,9 @@ fi
 #                           simulation rather than patched. Still synthesized.
 #   *_upstream_reference.*  pristine upstream copies kept beside the vendored
 #                           modules purely so local changes can be diffed.
+#   mc6809i.v, rtl/hiscore/ vendored, and they use variables before declaring
+#                           them (vlog-2730), as screen_rotate does. Verilator
+#                           for the 6809. Still synthesized.
 #   cos.sv, lfsr.v, mycore.v  Template_MiSTer's demo core. Excluded now, and to
 #                           be DELETED once <Name>.sv becomes the real top
 #                           level; the exclusions stay so a stray copy cannot
@@ -92,6 +95,8 @@ RTL=$(find rtl -name '*.sv' \
         -not -name 'cos.sv' | sort)
 VLOG=$(find rtl -name '*.v' \
         -not -path 'rtl/synth_check/*' \
+        -not -path 'rtl/hiscore/*' \
+        -not -name 'mc6809i*.v' \
         -not -name 'pll*.v' \
         -not -name 'lfsr.v' -not -name 'mycore.v' \
         -not -name '*_upstream_reference.v' | sort)

@@ -1,4 +1,10 @@
 `timescale 1ns/10ps
+// clk_sys and SDRAM_CLK, both 49 MHz from the 50 MHz reference (docs/ROADMAP.md, Clocks):
+// 7 x the 7 MHz pixel clock. outclk_1 is SDRAM_CLK 17857 ps behind (315 degrees, 2.55 ns ahead
+// of clk_sys), near the 2.5 ns lead Arcade-Pandora_MiSTer uses at 48 MHz with this controller.
+// The phase must be a multiple of the VCO step (1/8 VCO period): 17857 ps is one at either VCO
+// Quartus can pick for 49 MHz (980 or 1470 MHz); 17908 ps was rejected by the fitter.
+// Not swept (docs/HACKS.md).
 module  pll_0002(
 
 	// interface 'refclk'
@@ -10,6 +16,9 @@ module  pll_0002(
 	// interface 'outclk0'
 	output wire outclk_0,
 
+	// interface 'outclk1'
+	output wire outclk_1,
+
 	// interface 'locked'
 	output wire locked
 );
@@ -18,12 +27,12 @@ module  pll_0002(
 		.fractional_vco_multiplier("false"),
 		.reference_clock_frequency("50.0 MHz"),
 		.operation_mode("direct"),
-		.number_of_clocks(1),
-		.output_clock_frequency0("20.000000 MHz"),
+		.number_of_clocks(2),
+		.output_clock_frequency0("49.0 MHz"),
 		.phase_shift0("0 ps"),
 		.duty_cycle0(50),
-		.output_clock_frequency1("0 MHz"),
-		.phase_shift1("0 ps"),
+		.output_clock_frequency1("49.0 MHz"),
+		.phase_shift1("17857 ps"),
 		.duty_cycle1(50),
 		.output_clock_frequency2("0 MHz"),
 		.phase_shift2("0 ps"),
@@ -77,7 +86,7 @@ module  pll_0002(
 		.pll_subtype("General")
 	) altera_pll_i (
 		.rst	(rst),
-		.outclk	({outclk_0}),
+		.outclk	({outclk_1, outclk_0}),
 		.locked	(locked),
 		.fboutclk	( ),
 		.fbclk	(1'b0),

@@ -1,0 +1,8 @@
+rtl/jtframe/jtframe_dual_ram.v
+rtl/jtframe/jtframe_sh.v
+rtl/jtframe/jtframe_draw.v
+rtl/jtframe/jtframe_obj_buffer.v
+rtl/jtframe/jtframe_objdraw_gate.v
+rtl/jtframe/jtframe_objdraw.v
+rtl/video/lem_video.sv
+sim/lem_video_tb/tb_lem_video.sv

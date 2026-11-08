@@ -95,3 +95,5 @@ releases/*.rbf
 **/.DS_Store
 __pycache__/
 *.pyc
+
+obj_iverilog/

@@ -21,7 +21,14 @@ Rules:
 
 | What | Where | Why it is a hack | What would make it correct | Evidence | Severity |
 |---|---|---|---|---|---|
-| {{ONE_LINE_WHAT}} | `{{FILE}}:{{LINE}}` | {{WHY}} | {{FIX}} | {{EVIDENCE}} | {{SEVERITY}} |
+| Sound mix 0.45 as 0.4492 | `rtl/sound/lem_sound.sv` `x045` | MAME's route gain by shifts, no multiply | none needed: 0.2% low | arithmetic | latent |
+| Trackball from the mouse moves by the mouse's raw delta | `Lemmings.sv` `tb_x0`, `tb_y0` | MAME scales by `PORT_SENSITIVITY(70)`; scaling needs a multiply or a shift approximation | 0.7 as shifts and adds, or an OSD speed option | unverified | visible |
+| Trackball from the stick moves 7 a frame | `Lemmings.sv` `tb_x0` ... `tb_y1` | `PORT_KEYDELTA(10)` at sensitivity 70 as read from MAME's ioport semantics, not measured | A MAME run measuring the counter per frame with a key held | unverified | visible |
+| SDRAM clock phase not swept | `rtl/pll/pll_0002.v` | Pandora's lead in ns at 48 MHz carried to 49 MHz | A phase sweep on hardware | unverified | latent |
+| A sprite list copy takes 1024 clocks; a CPU access to that list waits for it | `lem_board.sv` `lem_spr_list` | MAME copies at once; the copy keeps MAME's contents but stalls the 68000 up to 21 us | The board's own copy timing | trace equal to MAME's through 32052 writes (`sim/lem_top_tb`) | latent |
+| The 68000 waits for SDRAM on ROM and pixel-layer accesses | `lem_board.sv` `X_ROM`, `X_PIX` | MAME's 68000 has no wait states | ROM in block RAM is not possible (1 MB) | interrupts land later in the instruction stream than MAME's (`sim/lem_top_tb`, write 32053) | latent |
+| DECO 146 port B bits 15:4 read 0 | `lem_board.sv` `u_deco` `port_b` | `SYSTEM` declares bits 0-3 only | A MAME read of the undeclared bits | unverified | latent |
+| Blink phase toggles at vblank start | `lem_board.sv` `frame_odd` | MAME's frame number parity, alignment to vblank not checked | A capture of a blinking sprite at two adjacent frames | unverified | visible |
 
 <!-- Examples of the shape, from sibling cores:
 | Sound mailbox is a stub that answers the power-on test | `rtl/gx_snd_stub.sv` | No sound CPU yet; the stub returns the reply the test expects and a heartbeat | Phase 3: the real sound board | The game's RAM check passes with it; nothing else is exercised | visible |
@@ -37,3 +44,4 @@ tell "never had it" from "had it and fixed it". Delete a row once nothing else r
 
 | What | Removed by | Replaced with |
 |---|---|---|
+| No sound: the sound board was not built | Phase 3 | `rtl/sound/lem_sound.sv`: the 6809, jt51, jt6295 |
